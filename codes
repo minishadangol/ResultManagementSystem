@@ -1,0 +1,344 @@
+import java.io.*;
+import java.util.*;
+
+class Student implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    int rollNo;
+    String name;
+    int[] marks = new int[3];
+    float percentage;
+    char grade;
+
+    public Student(int rollNo, String name, int[] marks) {
+        this.rollNo = rollNo;
+        this.name = name;
+        this.marks = marks;
+        calculateResult();
+    }
+
+    public void calculateResult() {
+        int total = 0;
+        for (int mark : marks) {
+            total += mark;
+        }
+        percentage = total / 3.0f;
+        grade = calculateGrade();
+    }
+
+    private char calculateGrade() {
+        if (percentage >= 90) return 'A';
+        if (percentage >= 75) return 'B';
+        if (percentage >= 60) return 'C';
+        if (percentage >= 40) return 'D';
+        return 'F';
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%-10d %-20s %-20s %-10.2f %-10c", rollNo, name, Arrays.toString(marks), percentage, grade);
+    }
+}
+
+class AVLNode {
+    Student student;
+    AVLNode left, right;
+    int height;
+
+    public AVLNode(Student student) {
+        this.student = student;
+        this.left = this.right = null;
+        this.height = 1;
+    }
+}
+
+class StudentManager {
+    private Map<Integer, Student> studentMap;
+    private AVLNode root;
+
+    public StudentManager() {
+        studentMap = new HashMap<>();
+        root = null;
+    }
+
+    public void addStudent() {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter Roll No: ");
+        int rollNo = sc.nextInt();
+
+        if (studentMap.containsKey(rollNo)) {
+            System.out.println("Student with this roll number already exists!");
+            return;
+        }
+
+        sc.nextLine();  // consume newline
+        System.out.print("Enter Name: ");
+        String name = sc.nextLine();
+
+        int[] marks = new int[3];
+        System.out.println("Enter marks for 3 subjects:");
+        for (int i = 0; i < 3; i++) {
+            System.out.print("Subject " + (i + 1) + ": ");
+            marks[i] = sc.nextInt();
+        }
+
+        Student student = new Student(rollNo, name, marks);
+        studentMap.put(rollNo, student);
+        root = insertAVL(root, student);
+        System.out.println("Student added successfully!");
+    }
+
+    public void deleteStudent() {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter Roll No to delete: ");
+        int rollNo = sc.nextInt();
+
+        if (!studentMap.containsKey(rollNo)) {
+            System.out.println("Student not found!");
+            return;
+        }
+
+        Student student = studentMap.get(rollNo);
+        root = deleteAVL(root, student);
+        studentMap.remove(rollNo);
+        System.out.println("Student deleted.");
+    }
+
+    public void searchStudent() {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter Roll No to search: ");
+        int rollNo = sc.nextInt();
+
+        if (studentMap.containsKey(rollNo)) {
+            Student student = studentMap.get(rollNo);
+            System.out.println("Name: " + student.name);
+            System.out.print("Marks: ");
+            for (int mark : student.marks) System.out.print(mark + " ");
+            System.out.println("\nPercentage: " + student.percentage);
+            System.out.println("Grade: " + student.grade);
+        } else {
+            System.out.println("Student not found!");
+        }
+    }
+
+    public void updateStudent() {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter Roll No to update: ");
+        int rollNo = sc.nextInt();
+
+        if (!studentMap.containsKey(rollNo)) {
+            System.out.println("Student not found!");
+            return;
+        }
+
+        Student student = studentMap.get(rollNo);
+        root = deleteAVL(root, student);
+        sc.nextLine();
+        System.out.print("Enter new Name: ");
+        student.name = sc.nextLine();
+        System.out.println("Enter new marks for 3 subjects:");
+        for (int i = 0; i < 3; i++) {
+            System.out.print("Subject " + (i + 1) + ": ");
+            student.marks[i] = sc.nextInt();
+        }
+        student.calculateResult();
+        root = insertAVL(root, student);
+        System.out.println("Student updated.");
+    }
+
+    public void displaySorted() {
+        System.out.println("\nSorted Students by Percentage (Ascending):");
+        System.out.printf("%-10s %-20s %-20s %-10s %-10s\n", "Roll No", "Name", "Marks", "Percentage", "Grade");
+        System.out.println("----------------------------------------------------------------------------------------");
+        displaySortedAVL(root);
+    }
+
+    private void displaySortedAVL(AVLNode node) {
+        if (node != null) {
+            displaySortedAVL(node.left);
+            System.out.println(node.student);
+            displaySortedAVL(node.right);
+        }
+    }
+
+    public void displayTopPerformers(int n) {
+        List<Student> students = new ArrayList<>(studentMap.values());
+        students.sort((a, b) -> Float.compare(b.percentage, a.percentage));
+        System.out.println("\nTop " + n + " Performers:");
+        for (int i = 0; i < n && i < students.size(); i++) {
+            System.out.println(students.get(i));
+        }
+    }
+
+    public void sortByName() {
+        List<Student> students = new ArrayList<>(studentMap.values());
+        students.sort(Comparator.comparing(student -> student.name));
+        System.out.println("\nStudents Sorted by Name:");
+        for (Student student : students) System.out.println(student);
+    }
+
+    public void displayStudentCount() {
+        System.out.println("\nTotal number of students: " + studentMap.size());
+    }
+
+    public void saveToFile() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("students.dat"))) {
+            oos.writeObject(studentMap);
+            System.out.println("Student data saved to file.");
+        } catch (IOException e) {
+            System.out.println("Error saving data to file: " + e.getMessage());
+        }
+    }
+
+    public void loadFromFile() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream("students.dat"))) {
+            studentMap = (Map<Integer, Student>) ois.readObject();
+            root = null;
+            for (Student student : studentMap.values()) {
+                root = insertAVL(root, student);
+            }
+            System.out.println("Student data loaded from file.");
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error loading data from file: " + e.getMessage());
+        }
+    }
+
+    private AVLNode insertAVL(AVLNode node, Student student) {
+        if (node == null) return new AVLNode(student);
+        if (student.percentage < node.student.percentage) node.left = insertAVL(node.left, student);
+        else node.right = insertAVL(node.right, student);
+        node.height = 1 + Math.max(height(node.left), height(node.right));
+        int balance = getBalance(node);
+        if (balance > 1 && student.percentage < node.left.student.percentage) return rightRotate(node);
+        if (balance < -1 && student.percentage > node.right.student.percentage) return leftRotate(node);
+        if (balance > 1 && student.percentage > node.left.student.percentage) {
+            node.left = leftRotate(node.left);
+            return rightRotate(node);
+        }
+        if (balance < -1 && student.percentage < node.right.student.percentage) {
+            node.right = rightRotate(node.right);
+            return leftRotate(node);
+        }
+        return node;
+    }
+
+    private AVLNode deleteAVL(AVLNode root, Student student) {
+        if (root == null) return root;
+        if (student.percentage < root.student.percentage) root.left = deleteAVL(root.left, student);
+        else if (student.percentage > root.student.percentage) root.right = deleteAVL(root.right, student);
+        else {
+            if (root.left == null || root.right == null) {
+                AVLNode temp = (root.left != null) ? root.left : root.right;
+                if (temp == null) root = null;
+                else root = temp;
+            } else {
+                AVLNode temp = minValueNode(root.right);
+                root.student = temp.student;
+                root.right = deleteAVL(root.right, temp.student);
+            }
+        }
+        if (root == null) return root;
+        root.height = 1 + Math.max(height(root.left), height(root.right));
+        int balance = getBalance(root);
+        if (balance > 1 && getBalance(root.left) >= 0) return rightRotate(root);
+        if (balance < -1 && getBalance(root.right) <= 0) return leftRotate(root);
+        if (balance > 1 && getBalance(root.left) < 0) {
+            root.left = leftRotate(root.left);
+            return rightRotate(root);
+        }
+        if (balance < -1 && getBalance(root.right) > 0) {
+            root.right = rightRotate(root.right);
+            return leftRotate(root);
+        }
+        return root;
+    }
+
+    private AVLNode rightRotate(AVLNode y) {
+        AVLNode x = y.left;
+        AVLNode T2 = x.right;
+        x.right = y;
+        y.left = T2;
+        y.height = Math.max(height(y.left), height(y.right)) + 1;
+        x.height = Math.max(height(x.left), height(x.right)) + 1;
+        return x;
+    }
+
+    private AVLNode leftRotate(AVLNode x) {
+        AVLNode y = x.right;
+        AVLNode T2 = y.left;
+        y.left = x;
+        x.right = T2;
+        x.height = Math.max(height(x.left), height(x.right)) + 1;
+        y.height = Math.max(height(y.left), height(y.right)) + 1;
+        return y;
+    }
+
+    private int height(AVLNode node) {
+        return (node == null) ? 0 : node.height;
+    }
+
+    private int getBalance(AVLNode node) {
+        return (node == null) ? 0 : height(node.left) - height(node.right);
+    }
+
+    private AVLNode minValueNode(AVLNode node) {
+        AVLNode current = node;
+        while (current.left != null) current = current.left;
+        return current;
+    }
+}
+
+public class Resultmanagement {
+    public static void main(String[] args) {
+        StudentManager manager = new StudentManager();
+        Scanner sc = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("\n1. Add Student\n2. Delete Student\n3. Search Student\n4. Update Student");
+            System.out.println("5. Display Sorted\n6. Display Top Performers\n7. Sort by Name\n8. Display Student Count");
+            System.out.println("9. Save to File\n10. Load from File\n11. Exit");
+            System.out.print("Enter choice: ");
+            int choice = sc.nextInt();
+
+            switch (choice) {
+                case 1:
+                    manager.addStudent();
+                    break;
+                case 2:
+                    manager.deleteStudent();
+                    break;
+                case 3:
+                    manager.searchStudent();
+                    break;
+                case 4:
+                    manager.updateStudent();
+                    break;
+                case 5:
+                    manager.displaySorted();
+                    break;
+                case 6:
+                    System.out.print("Enter the number of top performers to display: ");
+                    int n = sc.nextInt();
+                    manager.displayTopPerformers(n);
+                    break;
+                case 7:
+                    manager.sortByName();
+                    break;
+                case 8:
+                    manager.displayStudentCount();
+                    break;
+                case 9:
+                    manager.saveToFile();
+                    break;
+                case 10:
+                    manager.loadFromFile();
+                    break;
+                case 11:
+                    System.exit(0);
+                    break;
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+    }
+}
